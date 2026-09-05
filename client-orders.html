@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="client-dashboard.html">Dashboard</a>
+        <a href="client-customers.html">Customers</a>
+        <a href="client-orders.html">Orders</a>
+        <a href="client-shipments.html">Shipments</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card">
+      <h3>Add Order</h3>
+      <div id="msgCreate"></div>
+      <form id="createOrderForm" class="grid-2">
+        <div class="form-group"><label>Order Number</label><input class="form-control" type="text" id="o_number" required/></div>
+        <div class="form-group"><label>Status</label>
+          <select class="form-control" id="o_status">
+            <option value="pending">Pending</option>
+            <option value="in_transit">In Transit</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Order Date</label><input class="form-control" type="date" id="o_date" required/></div>
+        <div class="form-group"><label>Total Amount</label><input class="form-control" type="number" step="0.01" id="o_amount"/></div>
+        <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><textarea class="form-control" id="o_notes" rows="3"></textarea></div>
+        <div class="form-actions" style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Add Order</button></div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Your Orders</h3>
+      <div id="msgList"></div>
+      <div class="table-wrap">
+        <table id="ordersTable">
+          <thead><tr><th>ID</th><th>Order #</th><th>Status</th><th>Date</th><th>Amount</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireAuth();
+    const user = getUser();
+    const createForm = document.getElementById("createOrderForm");
+    const msgCreate = document.getElementById("msgCreate");
+    const msgList = document.getElementById("msgList");
+    const tbody = document.querySelector("#ordersTable tbody");
+    document.getElementById("o_date").valueAsDate = new Date();
+
+    async function loadOrders(){
+      tbody.innerHTML = "";
+      try {
+        const orders = await apiRequest("/orders");
+        orders.forEach(o => {
+          const editBtn = el("button",{className:"btn btn-glass",textContent:"Edit",type:"button",onClick:()=>editOrder(o)});
+          const delBtn = el("button",{className:"btn btn-danger",textContent:"Delete",type:"button",onClick:()=>deleteOrder(o.id)});
+          const actionsTd = el("td",{},[editBtn,delBtn]);
+          tbody.appendChild(el("tr",{},[
+            el("td",{textContent:o.id}),
+            el("td",{textContent:o.order_number}),
+            el("td",{textContent:o.status}),
+            el("td",{textContent:o.order_date}),
+            el("td",{textContent:o.total_amount!=null?o.total_amount.toFixed(2):"-"}),
+            el("td",{textContent:o.notes||"-"}),
+            actionsTd
+          ]));
+        });
+      } catch(err) {
+        showMsg(msgList, "Failed to load orders: " + err.message);
+      }
+    }
+
+    async function editOrder(o){
+      const order_number = prompt("Order Number:", o.order_number); if(!order_number) return;
+      const status = prompt("Status (pending,in_transit,delivered,cancelled):", o.status);
+      const order_date = prompt("Order Date (YYYY-MM-DD):", o.order_date);
+      const total_amount = prompt("Total Amount:", o.total_amount??"");
+      const notes = prompt("Notes:", o.notes??"");
+      try {
+        await apiRequest("/orders/"+o.id, {
+          method:"PUT",
+          body:JSON.stringify({
+            order_number,
+            status:status||"pending",
+            order_date:order_date||o.order_date,
+            total_amount:total_amount?parseFloat(total_amount):null,
+            notes:notes||null
+          })
+        });
+        loadOrders();
+      } catch(err) {
+        alert("Edit failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    async function deleteOrder(id){
+      if(!confirm("Delete this order?")) return;
+      try {
+        await apiRequest("/orders/"+id, {method:"DELETE"});
+        loadOrders();
+      } catch(err) {
+        alert("Delete failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgCreate.innerHTML = "";
+      const payload = {
+        user_id: user.id,
+        order_number: document.getElementById("o_number").value.trim(),
+        status: document.getElementById("o_status").value,
+        order_date: document.getElementById("o_date").value,
+        total_amount: parseFloat(document.getElementById("o_amount").value)||null,
+        notes: document.getElementById("o_notes").value.trim()
+      };
+      try {
+        await apiRequest("/orders", {method:"POST", body:JSON.stringify(payload)});
+        showMsg(msgCreate, "Order added successfully.", "success");
+        createForm.reset();
+        document.getElementById("o_date").valueAsDate = new Date();
+        loadOrders();
+      } catch(err) {
+        showMsg(msgCreate, "Failed to add order: " + (err.data?.detail||err.message));
+      }
+    });
+
+    loadOrders();
+  </script>
+</body>
+</html>
