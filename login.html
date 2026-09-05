@@ -62,7 +62,7 @@
           ? "admin-users.html"
           : "client-dashboard.html";
       } catch (err) {
-        showMsg(msg, err.message || "Login failed");
+        showMsg(msg, err.message || "Login failed", "error");
       }
     });
   </script>
