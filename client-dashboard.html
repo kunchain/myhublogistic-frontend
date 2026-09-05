@@ -25,9 +25,12 @@
   <div class="container section">
     <div id="tab-shipments" class="tab-content">
       <div class="card">
-        <h3>Your Shipments</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h3 style="margin:0;">Your Shipments</h3>
+          <a class="btn btn-primary" href="client-create-shipment.html">New Shipment</a>
+        </div>
         <div id="msgShipments"></div>
-        <div class="table-wrap">
+        <div class="table-wrap" style="margin-top:10px;">
           <table id="shipmentsTable">
             <thead>
               <tr>
