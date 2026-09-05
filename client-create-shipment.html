@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>New Shipment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="client-dashboard.html">Dashboard</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card" style="max-width:700px;margin:0 auto;">
+      <h3>Create New Shipment</h3>
+      <div id="msg"></div>
+      <form id="createShipmentForm" class="grid-2">
+        <div class="form-group">
+          <label>Origin</label>
+          <input class="form-control" type="text" id="s_origin" required />
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <input class="form-control" type="text" id="s_destination" required />
+        </div>
+        <div class="form-group">
+          <label>Weight (kg)</label>
+          <input class="form-control" type="number" step="0.01" id="s_weight_kg" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input class="form-control" type="text" id="s_description" />
+        </div>
+        <div class="form-actions" style="grid-column:1/-1;">
+          <button class="btn btn-primary" type="submit">Create Shipment</button>
+          <a class="btn btn-glass" href="client-dashboard.html">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireClient();
+    const form = document.getElementById("createShipmentForm");
+    const msg = document.getElementById("msg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.innerHTML = "";
+      const payload = {
+        origin: document.getElementById("s_origin").value.trim(),
+        destination: document.getElementById("s_destination").value.trim(),
+        weight_kg: document.getElementById("s_weight_kg").value ? parseFloat(document.getElementById("s_weight_kg").value) : null,
+        description: document.getElementById("s_description").value.trim()
+      };
+      try {
+        await apiRequest("/client/shipments", {method:"POST", body:JSON.stringify(payload)});
+        window.location.href = "client-dashboard.html";
+      } catch(err) {
+        showMsg(msg, "Failed to create shipment: " + (err.data?.detail||err.message), "error");
+      }
+    });
+  </script>
+</body>
+</html>
