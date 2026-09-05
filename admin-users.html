@@ -66,7 +66,7 @@
         <table id="usersTable">
           <thead>
             <tr>
-              <th>ID</th><th>Email</th><th>Name</th><th>Company</th><th>Phone</th><th>Role</th><th>Created</th>
+              <th>ID</th><th>Email</th><th>Name</th><th>Company</th><th>Phone</th><th>Role</th><th>Created</th><th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -88,6 +88,9 @@
       try {
         const users = await apiRequest("/admin/users");
         users.forEach(u => {
+          const editBtn = el("button",{className:"btn btn-glass",textContent:"Edit",type:"button",onclick:()=>editUser(u)});
+          const delBtn = el("button",{className:"btn btn-danger",textContent:"Delete",type:"button",onclick:()=>deleteUser(u.id)});
+          const actionsTd = el("td",{},[editBtn,delBtn]);
           tbody.appendChild(el("tr",{},[
             el("td",{textContent:u.id}),
             el("td",{textContent:u.email}),
@@ -95,11 +98,51 @@
             el("td",{textContent:u.company_name||"-"}),
             el("td",{textContent:u.phone||"-"}),
             el("td",{textContent:u.role}),
-            el("td",{textContent:new Date(u.created_at).toLocaleString()})
+            el("td",{textContent:new Date(u.created_at).toLocaleString()}),
+            actionsTd
           ]));
         });
       } catch(err) {
         showMsg(msgList, "Failed to load users: " + err.message);
+      }
+    }
+
+    async function deleteUser(id){
+      if(!confirm("Delete this user?")) return;
+      try {
+        await apiRequest("/admin/users/" + id, {method:"DELETE"});
+        loadUsers();
+      } catch(err) {
+        alert("Delete failed: " + (err.data?.detail || err.message));
+      }
+    }
+
+    async function editUser(u){
+      const email = prompt("Email:", u.email);
+      if (!email) return;
+      const name = prompt("Name:", u.name);
+      const company_name = prompt("Company:", u.company_name || "");
+      const phone = prompt("Phone:", u.phone || "");
+      const role = prompt("Role (admin/client):", u.role);
+      const password = prompt("New password (leave empty to keep current):", "");
+
+      const payload = {
+        email: email.trim(),
+        name: name ? name.trim() : "",
+        company_name: company_name ? company_name.trim() : "",
+        phone: phone ? phone.trim() : "",
+        role: (role || "client").trim(),
+        password: password ? password.trim() : ""
+      };
+
+      try {
+        await apiRequest("/admin/users/" + u.id, {
+          method:"PUT",
+          body: JSON.stringify(payload)
+        });
+        loadUsers();
+      } catch(err) {
+        alert("Edit failed: " + (err.data?.detail || err.message));
       }
     }
 
