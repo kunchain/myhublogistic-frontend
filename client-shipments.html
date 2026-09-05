@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shipments</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="client-dashboard.html">Dashboard</a>
+        <a href="client-customers.html">Customers</a>
+        <a href="client-orders.html">Orders</a>
+        <a href="client-shipments.html">Shipments</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card">
+      <h3>Add Shipment</h3>
+      <div id="msgCreate"></div>
+      <form id="createShipmentForm" class="grid-2">
+        <div class="form-group"><label>Tracking Number</label><input class="form-control" type="text" id="s_tracking"/></div>
+        <div class="form-group"><label>Carrier</label><input class="form-control" type="text" id="s_carrier"/></div>
+        <div class="form-group"><label>Status</label>
+          <select class="form-control" id="s_status">
+            <option value="pending">Pending</option>
+            <option value="in_transit">In Transit</option>
+            <option value="delivered">Delivered</option>
+            <option value="exception">Exception</option>
+          </select>
+        </div>
+        <div class="form-group"><label>ETA Date</label><input class="form-control" type="date" id="s_eta"/></div>
+        <div class="form-group" style="grid-column:1/-1;"><label>Current Location</label><input class="form-control" type="text" id="s_location"/></div>
+        <div class="form-actions" style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Add Shipment</button></div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Your Shipments</h3>
+      <div id="msgList"></div>
+      <div class="table-wrap">
+        <table id="shipmentsTable">
+          <thead><tr><th>ID</th><th>Tracking #</th><th>Carrier</th><th>Status</th><th>ETA</th><th>Location</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireAuth();
+    const user = getUser();
+    const createForm = document.getElementById("createShipmentForm");
+    const msgCreate = document.getElementById("msgCreate");
+    const msgList = document.getElementById("msgList");
+    const tbody = document.querySelector("#shipmentsTable tbody");
+
+    async function loadShipments(){
+      tbody.innerHTML = "";
+      try {
+        const shipments = await apiRequest("/shipments");
+        shipments.forEach(s => {
+          const editBtn = el("button",{className:"btn btn-glass",textContent:"Edit",type:"button",onClick:()=>editShipment(s)});
+          const delBtn = el("button",{className:"btn btn-danger",textContent:"Delete",type:"button",onClick:()=>deleteShipment(s.id)});
+          const actionsTd = el("td",{},[editBtn,delBtn]);
+          tbody.appendChild(el("tr",{},[
+            el("td",{textContent:s.id}),
+            el("td",{textContent:s.tracking_number||"-"}),
+            el("td",{textContent:s.carrier||"-"}),
+            el("td",{textContent:s.status}),
+            el("td",{textContent:s.eta_date||"-"}),
+            el("td",{textContent:s.current_location||"-"}),
+            actionsTd
+          ]));
+        });
+      } catch(err) {
+        showMsg(msgList, "Failed to load shipments: " + err.message);
+      }
+    }
+
+    async function editShipment(s){
+      const tracking_number = prompt("Tracking Number:", s.tracking_number??"");
+      const carrier = prompt("Carrier:", s.carrier??"");
+      const status = prompt("Status (pending,in_transit,delivered,exception):", s.status);
+      const eta_date = prompt("ETA Date (YYYY-MM-DD):", s.eta_date??"");
+      const current_location = prompt("Current Location:", s.current_location??"");
+      try {
+        await apiRequest("/shipments/"+s.id, {
+          method:"PUT",
+          body:JSON.stringify({
+            tracking_number:tracking_number||null,
+            carrier:carrier||null,
+            status:status||"pending",
+            eta_date:eta_date||null,
+            current_location:current_location||null
+          })
+        });
+        loadShipments();
+      } catch(err) {
+        alert("Edit failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    async function deleteShipment(id){
+      if(!confirm("Delete this shipment?")) return;
+      try {
+        await apiRequest("/shipments/"+id, {method:"DELETE"});
+        loadShipments();
+      } catch(err) {
+        alert("Delete failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgCreate.innerHTML = "";
+      const payload = {
+        user_id: user.id,
+        tracking_number: document.getElementById("s_tracking").value.trim(),
+        carrier: document.getElementById("s_carrier").value.trim(),
+        status: document.getElementById("s_status").value,
+        eta_date: document.getElementById("s_eta").value||null,
+        current_location: document.getElementById("s_location").value.trim()
+      };
+      try {
+        await apiRequest("/shipments", {method:"POST", body:JSON.stringify(payload)});
+        showMsg(msgCreate, "Shipment added successfully.", "success");
+        createForm.reset();
+        loadShipments();
+      } catch(err) {
+        showMsg(msgCreate, "Failed to add shipment: " + (err.data?.detail||err.message));
+      }
+    }
+
+    loadShipments();
+  </script>
+</body>
+</html>
