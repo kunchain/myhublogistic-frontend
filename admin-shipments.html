@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Shipments</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="admin-users.html">Users</a>
+        <a href="admin-shipments.html">Shipments</a>
+        <a href="admin-db-view.html">DB View</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card">
+      <h3>Create Shipment</h3>
+      <div id="msgCreate"></div>
+      <form id="createShipmentForm" class="grid-2">
+        <div class="form-group">
+          <label>Customer Email</label>
+          <input class="form-control" type="email" id="s_customer_email" required />
+        </div>
+        <div class="form-group">
+          <label>Origin</label>
+          <input class="form-control" type="text" id="s_origin" required />
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <input class="form-control" type="text" id="s_destination" required />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <input class="form-control" type="text" id="s_status" value="pending" />
+        </div>
+        <div class="form-group">
+          <label>Weight (kg)</label>
+          <input class="form-control" type="number" step="0.01" id="s_weight_kg" />
+        </div>
+        <div class="form-group">
+          <label>Tracking Number</label>
+          <input class="form-control" type="text" id="s_tracking_number" />
+        </div>
+        <div class="form-actions" style="grid-column:1/-1;">
+          <button class="btn btn-primary" type="submit">Create Shipment</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>All Shipments</h3>
+      <div id="msgList"></div>
+      <div class="table-wrap">
+        <table id="shipmentsTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Tracking #</th><th>Customer</th><th>Origin</th><th>Destination</th><th>Status</th><th>Weight</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireAdmin();
+    const createForm = document.getElementById("createShipmentForm");
+    const msgCreate = document.getElementById("msgCreate");
+    const msgList = document.getElementById("msgList");
+    const tbody = document.querySelector("#shipmentsTable tbody");
+
+    async function loadShipments(){
+      tbody.innerHTML = "";
+      try {
+        const data = await apiRequest("/admin/shipments");
+        (data.shipments||[]).forEach(s => {
+          const editBtn = el("button",{className:"btn btn-glass",textContent:"Edit",type:"button",onclick:()=>editShipment(s)});
+          const actionsTd = el("td",{},[editBtn]);
+          tbody.appendChild(el("tr",{},[
+            el("td",{textContent:s.id}),
+            el("td",{textContent:s.tracking_number||"-"}),
+            el("td",{textContent:s.customer_email||"-"}),
+            el("td",{textContent:s.origin||"-"}),
+            el("td",{textContent:s.destination||"-"}),
+            el("td",{textContent:s.status||"-"}),
+            el("td",{textContent:s.weight_kg!=null? s.weight_kg+" kg":"-"}),
+            el("td",{textContent:new Date(s.created_at).toLocaleString()}),
+            actionsTd
+          ]));
+        });
+      } catch(err) {
+        showMsg(msgList, "Failed to load shipments: " + (err.data?.detail||err.message), "error");
+      }
+    }
+
+    async function editShipment(s){
+      const origin = prompt("Origin:", s.origin);
+      const destination = prompt("Destination:", s.destination);
+      const status = prompt("Status:", s.status);
+      const weight_kg = prompt("Weight (kg):", s.weight_kg ?? "");
+      const tracking_number = prompt("Tracking number:", s.tracking_number ?? "");
+      if(!origin || !destination) return;
+
+      const payload = {
+        origin: origin.trim(),
+        destination: destination.trim(),
+        status: status ? status.trim() : "pending",
+        weight_kg: weight_kg ? parseFloat(weight_kg) : null,
+        tracking_number: tracking_number ? tracking_number.trim() : ""
+      };
+
+      try {
+        await apiRequest("/admin/shipments/" + s.id, {
+          method:"PUT",
+          body: JSON.stringify(payload)
+        });
+        loadShipments();
+      } catch(err) {
+        alert("Edit failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgCreate.innerHTML = "";
+      const payload = {
+        customer_email: document.getElementById("s_customer_email").value.trim(),
+        origin: document.getElementById("s_origin").value.trim(),
+        destination: document.getElementById("s_destination").value.trim(),
+        status: document.getElementById("s_status").value.trim(),
+        weight_kg: document.getElementById("s_weight_kg").value ? parseFloat(document.getElementById("s_weight_kg").value) : null,
+        tracking_number: document.getElementById("s_tracking_number").value.trim()
+      };
+      try {
+        await apiRequest("/admin/shipments", {method:"POST", body:JSON.stringify(payload)});
+        showMsg(msgCreate, "Shipment created.", "success");
+        createForm.reset();
+        loadShipments();
+      } catch(err) {
+        showMsg(msgCreate, "Failed to create shipment: " + (err.data?.detail||err.message), "error");
+      }
+    });
+
+    loadShipments();
+  </script>
+</body>
+</html>
