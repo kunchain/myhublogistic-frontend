@@ -1,0 +1,14 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Optional local config (if you want per-developer overrides)
+config.local.js
+
+# Build / dist (if you add a build step later)
+dist/
+build/
