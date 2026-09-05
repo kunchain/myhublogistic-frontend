@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Invoices</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="admin-users.html">Users</a>
+        <a href="admin-shipments.html">Shipments</a>
+        <a href="admin-invoices.html">Invoices</a>
+        <a href="admin-db-view.html">DB View</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card">
+      <h3>Create Invoice</h3>
+      <div id="msgCreate"></div>
+      <form id="createInvoiceForm" class="grid-2">
+        <div class="form-group">
+          <label>Customer Email</label>
+          <input class="form-control" type="email" id="i_customer_email" required />
+        </div>
+        <div class="form-group">
+          <label>Amount (USD)</label>
+          <input class="form-control" type="number" step="0.01" id="i_amount_usd" required />
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <input class="form-control" type="date" id="i_due_date" />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select class="form-control" id="i_status">
+            <option value="pending">pending</option>
+            <option value="paid">paid</option>
+            <option value="overdue">overdue</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input class="form-control" type="text" id="i_description" />
+        </div>
+        <div class="form-actions" style="grid-column:1/-1;">
+          <button class="btn btn-primary" type="submit">Create Invoice</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>All Invoices</h3>
+      <div id="msgList"></div>
+      <div class="table-wrap">
+        <table id="invoicesTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Customer</th><th>Amount</th><th>Status</th><th>Due Date</th><th>Description</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireAdmin();
+    const createForm = document.getElementById("createInvoiceForm");
+    const msgCreate = document.getElementById("msgCreate");
+    const msgList = document.getElementById("msgList");
+    const tbody = document.querySelector("#invoicesTable tbody");
+
+    async function loadInvoices(){
+      tbody.innerHTML = "";
+      try {
+        const data = await apiRequest("/admin/invoices");
+        (data.invoices||[]).forEach(inv => {
+          const editBtn = el("button",{className:"btn btn-glass",textContent:"Edit",type:"button",onclick:()=>editInvoice(inv)});
+          const actionsTd = el("td",{},[editBtn]);
+          tbody.appendChild(el("tr",{},[
+            el("td",{textContent:inv.id}),
+            el("td",{textContent:inv.customer_email||"-"}),
+            el("td",{textContent:"$" + (inv.amount_cents/100).toFixed(2)}),
+            el("td",{textContent:inv.status}),
+            el("td",{textContent:inv.due_date?new Date(inv.due_date).toLocaleDateString():"-"}),
+            el("td",{textContent:inv.description||"-"}),
+            el("td",{textContent:new Date(inv.created_at).toLocaleString()}),
+            actionsTd
+          ]));
+        });
+      } catch(err) {
+        showMsg(msgList, "Failed to load invoices: " + (err.data?.detail||err.message), "error");
+      }
+    }
+
+    async function editInvoice(inv){
+      const customer_email = prompt("Customer email:", inv.customer_email);
+      const amount_usd = prompt("Amount (USD):", (inv.amount_cents/100).toFixed(2));
+      const status = prompt("Status (pending/paid/overdue):", inv.status);
+      const due_date = prompt("Due date (YYYY-MM-DD):", inv.due_date ? inv.due_date.slice(0,10) : "");
+      const description = prompt("Description:", inv.description || "");
+      if(!customer_email || !amount_usd) return;
+
+      const payload = {
+        customer_email: customer_email.trim(),
+        amount_cents: Math.round(parseFloat(amount_usd)*100),
+        status: (status||"pending").trim(),
+        due_date: due_date ? due_date.trim() : null,
+        description: description ? description.trim() : ""
+      };
+
+      try {
+        await apiRequest("/admin/invoices/" + inv.id, {
+          method:"PUT",
+          body: JSON.stringify(payload)
+        });
+        loadInvoices();
+      } catch(err) {
+        alert("Edit failed: " + (err.data?.detail||err.message));
+      }
+    }
+
+    createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgCreate.innerHTML = "";
+      const payload = {
+        customer_email: document.getElementById("i_customer_email").value.trim(),
+        amount_cents: Math.round(parseFloat(document.getElementById("i_amount_usd").value)*100),
+        status: document.getElementById("i_status").value,
+        due_date: document.getElementById("i_due_date").value ? document.getElementById("i_due_date").value : null,
+        description: document.getElementById("i_description").value.trim()
+      };
+      try {
+        await apiRequest("/admin/invoices", {method:"POST", body:JSON.stringify(payload)});
+        showMsg(msgCreate, "Invoice created.", "success");
+        createForm.reset();
+        loadInvoices();
+      } catch(err) {
+        showMsg(msgCreate, "Failed to create invoice: " + (err.data?.detail||err.message), "error");
+      }
+    });
+
+    loadInvoices();
+  </script>
+</body>
+</html>
