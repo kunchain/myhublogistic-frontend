@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Dashboard</title>
+  <title>Client Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="assets/style.css" />
 </head>
@@ -14,57 +14,154 @@
         Myhublogistic
       </a>
       <div class="nav-links">
-        <a href="client-dashboard.html">Dashboard</a>
-        <a href="client-customers.html">Customers</a>
-        <a href="client-orders.html">Orders</a>
-        <a href="client-shipments.html">Shipments</a>
+        <a href="#" onclick="switchTab('shipments');return false;">Shipments</a>
+        <a href="#" onclick="switchTab('invoices');return false;">Invoices</a>
+        <a href="#" onclick="switchTab('profile');return false;">Profile</a>
         <a href="#" onclick="logout();return false;">Logout</a>
       </div>
     </div>
   </nav>
 
   <div class="container section">
-    <div class="card">
-      <h3>Welcome, <span id="userName"></span></h3>
-      <p style="color:var(--text-dim);font-size:14px;margin:0 0 16px;">
-        Overview of your logistics data.
-      </p>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="label">Customers</div><div class="value" id="statCustomers">-</div></div>
-        <div class="stat-card"><div class="label">Orders</div><div class="value" id="statOrders">-</div></div>
-        <div class="stat-card"><div class="label">Shipments</div><div class="value" id="statShipments">-</div></div>
-        <div class="stat-card"><div class="label">In Transit</div><div class="value" id="statInTransit">-</div></div>
+    <div id="tab-shipments" class="tab-content">
+      <div class="card">
+        <h3>Your Shipments</h3>
+        <div id="msgShipments"></div>
+        <div class="table-wrap">
+          <table id="shipmentsTable">
+            <thead>
+              <tr>
+                <th>ID</th><th>Tracking #</th><th>Origin</th><th>Destination</th><th>Status</th><th>Created</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
-      <div class="form-actions">
-        <a class="btn btn-primary" href="client-customers.html">Manage Customers</a>
-        <a class="btn btn-glass" href="client-orders.html">Manage Orders</a>
-        <a class="btn btn-glass" href="client-shipments.html">Manage Shipments</a>
+    </div>
+
+    <div id="tab-invoices" class="tab-content" style="display:none;">
+      <div class="card">
+        <h3>Your Invoices</h3>
+        <div id="msgInvoices"></div>
+        <div class="table-wrap">
+          <table id="invoicesTable">
+            <thead>
+              <tr>
+                <th>ID</th><th>Amount</th><th>Status</th><th>Due Date</th><th>Created</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-profile" class="tab-content" style="display:none;">
+      <div class="card">
+        <h3>Edit Profile</h3>
+        <div id="msgProfile"></div>
+        <form id="profileForm" class="grid-2">
+          <div class="form-group">
+            <label>Name</label>
+            <input class="form-control" type="text" id="p_name" required />
+          </div>
+          <div class="form-group">
+            <label>Company</label>
+            <input class="form-control" type="text" id="p_company" />
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input class="form-control" type="text" id="p_phone" />
+          </div>
+          <div class="form-actions" style="grid-column:1/-1;">
+            <button class="btn btn-primary" type="submit">Save Changes</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 
   <script src="assets/app.js"></script>
   <script>
-    requireAuth();
-    const user = getUser();
-    document.getElementById("userName").textContent = user?.name || "Client";
+    requireClient();
+    const msgShipments = document.getElementById("msgShipments");
+    const msgInvoices = document.getElementById("msgInvoices");
+    const msgProfile = document.getElementById("msgProfile");
+    const shipmentsTbody = document.querySelector("#shipmentsTable tbody");
+    const invoicesTbody = document.querySelector("#invoicesTable tbody");
 
-    async function loadStats(){
+    function switchTab(name){
+      document.querySelectorAll(".tab-content").forEach(el=>el.style.display="none");
+      document.getElementById("tab-"+name).style.display = "";
+    }
+
+    async function loadShipments(){
+      shipmentsTbody.innerHTML = "";
       try {
-        const [customers, orders, shipments] = await Promise.all([
-          apiRequest("/customers"),
-          apiRequest("/orders"),
-          apiRequest("/shipments")
-        ]);
-        document.getElementById("statCustomers").textContent = customers.length;
-        document.getElementById("statOrders").textContent = orders.length;
-        document.getElementById("statShipments").textContent = shipments.length;
-        document.getElementById("statInTransit").textContent = shipments.filter(s=>s.status==="in_transit").length;
+        const data = await apiRequest("/client/shipments");
+        (data.shipments||[]).forEach(s => {
+          shipmentsTbody.appendChild(el("tr",{},[
+            el("td",{textContent:s.id}),
+            el("td",{textContent:s.tracking_number||"-"}),
+            el("td",{textContent:s.origin||"-"}),
+            el("td",{textContent:s.destination||"-"}),
+            el("td",{textContent:s.status||"-"}),
+            el("td",{textContent:new Date(s.created_at).toLocaleString()})
+          ]));
+        });
       } catch(err) {
-        console.error("Failed to load stats", err);
+        showMsg(msgShipments, "Failed to load shipments: " + (err.data?.detail||err.message), "error");
       }
     }
-    loadStats();
+
+    async function loadInvoices(){
+      invoicesTbody.innerHTML = "";
+      try {
+        const data = await apiRequest("/client/invoices");
+        (data.invoices||[]).forEach(inv => {
+          invoicesTbody.appendChild(el("tr",{},[
+            el("td",{textContent:inv.id}),
+            el("td",{textContent:"$"+ (inv.amount_cents/100).toFixed(2)}),
+            el("td",{textContent:inv.status}),
+            el("td",{textContent:inv.due_date?new Date(inv.due_date).toLocaleDateString():"-"}),
+            el("td",{textContent:new Date(inv.created_at).toLocaleString()})
+          ]));
+        });
+      } catch(err) {
+        showMsg(msgInvoices, "Failed to load invoices: " + (err.data?.detail||err.message), "error");
+      }
+    }
+
+    async function loadProfile(){
+      const u = getUser();
+      if(!u) return;
+      document.getElementById("p_name").value = u.name || "";
+      document.getElementById("p_company").value = u.company_name || "";
+      document.getElementById("p_phone").value = u.phone || "";
+    }
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgProfile.innerHTML = "";
+      const payload = {
+        name: document.getElementById("p_name").value.trim(),
+        company_name: document.getElementById("p_company").value.trim(),
+        phone: document.getElementById("p_phone").value.trim()
+      };
+      try {
+        await apiRequest("/client/profile", {method:"PUT", body:JSON.stringify(payload)});
+        const u = getUser();
+        setUser({...u, ...payload});
+        showMsg(msgProfile, "Profile updated.", "success");
+      } catch(err) {
+        showMsg(msgProfile, "Update failed: " + (err.data?.detail||err.message), "error");
+      }
+    });
+
+    loadShipments();
+    loadInvoices();
+    loadProfile();
   </script>
 </body>
 </html>
