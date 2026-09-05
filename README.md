@@ -11,6 +11,7 @@ Simple static frontend for a logistics management app (shipments, invoices, admi
 - `admin-invoices.html` – Admin invoice management (list/create/edit)
 - `admin-db-view.html` – Admin database viewer (inspect tables)
 - `client-dashboard.html` – Client dashboard (shipments, invoices, profile)
+- `client-create-shipment.html` – Client page to create a new shipment
 
 ## API integration
 
@@ -30,7 +31,10 @@ Expected endpoints (non-exhaustive):
   - `GET /admin/invoices`, `POST /admin/invoices`, `PUT /admin/invoices/:id`
   - `GET /admin/db/:table`
 - Client
-  - `GET /client/shipments`, `GET /client/invoices`, `PUT /client/profile`
+  - `GET /client/shipments`
+  - `POST /client/shipments` (for client-create-shipment.html)
+  - `GET /client/invoices`
+  - `PUT /client/profile`
 
 ## Local development
 
@@ -83,7 +87,7 @@ After deploying, make sure `API_BASE_URL` in `assets/app.js` points to your prod
 
 - **Client**
   - Log in with a client account.
-  - View shipments and invoices, and edit profile at `client-dashboard.html`.
+  - View shipments and invoices, edit profile, and create new shipments from the client dashboard.
 
 ## License
 
