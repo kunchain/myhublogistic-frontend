@@ -12,6 +12,7 @@ Simple static frontend for a logistics management app (shipments, invoices, admi
 - `admin-db-view.html` – Admin database viewer (inspect tables)
 - `client-dashboard.html` – Client dashboard (shipments, invoices, profile)
 - `client-create-shipment.html` – Client page to create a new shipment
+- `404.html` – Simple 404 page
 
 ## API integration
 
@@ -32,9 +33,37 @@ Expected endpoints (non-exhaustive):
   - `GET /admin/db/:table`
 - Client
   - `GET /client/shipments`
-  - `POST /client/shipments` (for client-create-shipment.html)
+  - `POST /client/shipments`
   - `GET /client/invoices`
   - `PUT /client/profile`
+
+## Running the backend (demo)
+
+A minimal FastAPI backend stub is provided in `backend/main.py` for development and demo.
+
+1. From the repo root, create a virtual environment and install dependencies:
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. Run the server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+
+3. In `assets/app.js`, set:
+   ```js
+   const API_BASE_URL = "http://localhost:8000";
+   ```
+
+4. Default admin login:
+   - Email: `admin@myhublogistic.com`
+   - Password: `Admin@1234`
+
+This backend uses in-memory data only and is not intended for production.
 
 ## Local development
 
