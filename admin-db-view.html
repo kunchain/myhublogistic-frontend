@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DB View – Myhublogistic</title>
+  <title>Admin – DB View</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="assets/style.css" />
 </head>
@@ -23,18 +23,23 @@
 
   <div class="container section">
     <div class="card">
-      <h3>Database Viewer (Admin)</h3>
-      <p style="color:var(--text-dim);font-size:13px;margin:0 0 16px;">
-        View all data in tables: Users, Customers, Orders, Shipments.
-      </p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-        <button class="btn btn-glass" onclick="showTable('users')">Users</button>
-        <button class="btn btn-glass" onclick="showTable('customers')">Customers</button>
-        <button class="btn btn-glass" onclick="showTable('orders')">Orders</button>
-        <button class="btn btn-glass" onclick="showTable('shipments')">Shipments</button>
-        <a class="btn btn-primary" href="#" id="dbDownloadLink" target="_blank">Download DB</a>
+      <h3>Database Viewer</h3>
+      <p style="color:var(--text-dim);font-size:13px;">Select a table and click Load to run SELECT *.</p>
+      <div id="msgDb"></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select id="tableSelect" class="form-control" style="width:220px;">
+          <option value="users">users</option>
+          <option value="companies">companies</option>
+          <option value="shipments">shipments</option>
+          <option value="invoices">invoices</option>
+          <option value="payments">payments</option>
+        </select>
+        <button class="btn btn-primary" id="loadBtn">Load</button>
       </div>
-      <div id="msg"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Results</h3>
       <div class="table-wrap">
         <table id="dbTable">
           <thead></thead>
@@ -47,32 +52,41 @@
   <script src="assets/app.js"></script>
   <script>
     requireAdmin();
-    const tableHead = document.querySelector("#dbTable thead");
-    const tableBody = document.querySelector("#dbTable tbody");
-    const msg = document.getElementById("msg");
-    const downloadLink = document.getElementById("dbDownloadLink");
+    const msgDb = document.getElementById("msgDb");
+    const tableSelect = document.getElementById("tableSelect");
+    const loadBtn = document.getElementById("loadBtn");
+    const thead = document.querySelector("#dbTable thead");
+    const tbody = document.querySelector("#dbTable tbody");
 
-    downloadLink.href = API_BASE.replace("/api","") + "/api/admin/db/download";
+    loadBtn.addEventListener("click", async () => {
+      msgDb.innerHTML = "";
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      const table = tableSelect.value.trim();
+      if(!table) return;
 
-    async function showTable(name){
-      tableHead.innerHTML = "";
-      tableBody.innerHTML = "";
-      msg.innerHTML = "";
       try {
-        const data = await apiRequest("/admin/db/" + name);
-        if(!data || data.length === 0){
-          showMsg(msg, "No records found.", "error");
+        // This expects a backend endpoint: GET /admin/db/:table that returns {columns:[...], rows:[...]}
+        const data = await apiRequest("/admin/db/" + encodeURIComponent(table));
+        const cols = data.columns || [];
+        const rows = data.rows || [];
+
+        if(!cols.length) {
+          showMsg(msgDb, "No columns returned.", "error");
           return;
         }
-        const keys = Object.keys(data[0]);
-        tableHead.appendChild(el("tr",{}, keys.map(k=>el("th",{textContent:k}))));
-        data.forEach(row => {
-          tableBody.appendChild(el("tr",{}, keys.map(k=>el("td",{textContent:row[k]??"-"}))));
+
+        const trHead = el("tr",{}, cols.map(c => el("th",{textContent:c})));
+        thead.appendChild(trHead);
+
+        rows.forEach(r => {
+          const tr = el("tr",{}, cols.map(c => el("td",{textContent: r[c] ?? ""})));
+          tbody.appendChild(tr);
         });
       } catch(err) {
-        showMsg(msg, "Failed to load " + name + ": " + err.message, "error");
+        showMsg(msgDb, "Failed to load table: " + (err.data?.detail || err.message), "error");
       }
-    }
+    });
   </script>
 </body>
 </html>
