@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DB View – Myhublogistic</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="admin-users.html">Users</a>
+        <a href="admin-db-view.html">DB View</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card">
+      <h3>Database Viewer (Admin)</h3>
+      <p style="color:var(--text-dim);font-size:13px;margin:0 0 16px;">
+        View all data in tables: Users, Customers, Orders, Shipments.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="btn btn-glass" onclick="showTable('users')">Users</button>
+        <button class="btn btn-glass" onclick="showTable('customers')">Customers</button>
+        <button class="btn btn-glass" onclick="showTable('orders')">Orders</button>
+        <button class="btn btn-glass" onclick="showTable('shipments')">Shipments</button>
+        <a class="btn btn-primary" href="#" id="dbDownloadLink" target="_blank">Download DB</a>
+      </div>
+      <div id="msg"></div>
+      <div class="table-wrap">
+        <table id="dbTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireAdmin();
+    const tableHead = document.querySelector("#dbTable thead");
+    const tableBody = document.querySelector("#dbTable tbody");
+    const msg = document.getElementById("msg");
+    const downloadLink = document.getElementById("dbDownloadLink");
+
+    downloadLink.href = API_BASE.replace("/api","") + "/api/admin/db/download";
+
+    async function showTable(name){
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+      msg.innerHTML = "";
+      try {
+        const data = await apiRequest("/admin/db/" + name);
+        if(!data || data.length === 0){
+          showMsg(msg, "No records found.", "error");
+          return;
+        }
+        const keys = Object.keys(data[0]);
+        tableHead.appendChild(el("tr",{}, keys.map(k=>el("th",{textContent:k}))));
+        data.forEach(row => {
+          tableBody.appendChild(el("tr",{}, keys.map(k=>el("td",{textContent:row[k]??"-"}))));
+        });
+      } catch(err) {
+        showMsg(msg, "Failed to load " + name + ": " + err.message, "error");
+      }
+    }
+  </script>
+</body>
+</html>
