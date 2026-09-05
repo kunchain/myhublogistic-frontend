@@ -2,6 +2,24 @@
 
 Simple static frontend for a logistics management app (shipments, invoices, admin controls).
 
+## Quickstart
+
+```bash
+# 1. Clone
+git clone https://github.com/kunchain/myhublogistic-frontend.git
+cd myhublogistic-frontend
+
+# 2. Install backend deps (first time only)
+make install-backend
+
+# 3. Run backend + frontend
+make dev
+
+# 4. Open http://localhost:8080
+#    Set API_BASE_URL = "http://localhost:8000" in assets/app.js if needed
+#    Default admin login: admin@myhublogistic.com / Admin@1234
+```
+
 ## Pages
 
 - `index.html` – Landing page
