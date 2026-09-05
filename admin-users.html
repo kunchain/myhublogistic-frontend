@@ -23,7 +23,7 @@
 
   <div class="container section">
     <div class="card">
-      <h3>Add New Client User</h3>
+      <h3>Add New User</h3>
       <div id="msgCreate"></div>
       <form id="createUserForm" class="grid-2">
         <div class="form-group">
@@ -103,7 +103,7 @@
           ]));
         });
       } catch(err) {
-        showMsg(msgList, "Failed to load users: " + err.message);
+        showMsg(msgList, "Failed to load users: " + (err.data?.detail || err.message), "error");
       }
     }
 
@@ -163,7 +163,7 @@
         createForm.reset();
         loadUsers();
       } catch(err) {
-        showMsg(msgCreate, "Failed to create user: " + (err.data?.detail||err.message));
+        showMsg(msgCreate, "Failed to create user: " + (err.data?.detail||err.message), "error");
       }
     });
 
