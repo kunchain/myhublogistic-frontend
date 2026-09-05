@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login – Myhublogistic</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="auth-box card">
+      <h2>Welcome back</h2>
+      <p>Log in to manage your logistics operations.</p>
+      <div id="msg"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Email</label>
+          <input class="form-control" type="email" id="email" required />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input class="form-control" type="password" id="password" required />
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Log in</button>
+        </div>
+      </form>
+      <p style="margin-top:16px;font-size:13px;color:var(--text-dim);">
+        Default admin: admin@myhublogistic.com / Admin@1234
+      </p>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    const form = document.getElementById("loginForm");
+    const msg = document.getElementById("msg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.innerHTML = "";
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const data = await apiRequest("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        setToken(data.access_token);
+        setUser(data.user);
+        window.location.href = data.user.role === "admin"
+          ? "admin-users.html"
+          : "client-dashboard.html";
+      } catch (err) {
+        showMsg(msg, err.message || "Login failed");
+      }
+    });
+  </script>
+</body>
+</html>
