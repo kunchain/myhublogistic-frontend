@@ -1,22 +1,29 @@
 """
-Minimal FastAPI backend stub for Myhublogistic frontend.
+FastAPI backend with JWT auth for Myhublogistic frontend.
 In-memory data only; for development/demo purposes.
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
+import jwt
+from passlib.context import CryptContext
 
 app = FastAPI(title="Myhublogistic API")
+
+# --- Config ---
+SECRET_KEY = "change-this-in-production-to-a-long-random-string"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # --- In-memory "database" ---
 USERS = [
     {
         "id": "u_admin",
         "email": "admin@myhublogistic.com",
-        "password": "Admin@1234",
+        "password_hash": CryptContext(["bcrypt"]).hash("Admin@1234"),
         "name": "Admin User",
         "company_name": "Myhublogistic",
         "phone": "",
@@ -32,12 +39,10 @@ PAYMENTS = []
 
 # --- Pydantic models ---
 
-# Auth
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-# Users
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -54,7 +59,6 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = None
 
-# Shipments
 class ShipmentCreateAdmin(BaseModel):
     customer_email: EmailStr
     origin: str
@@ -76,7 +80,6 @@ class ShipmentCreateClient(BaseModel):
     weight_kg: Optional[float] = None
     description: Optional[str] = ""
 
-# Invoices
 class InvoiceCreateAdmin(BaseModel):
     customer_email: EmailStr
     amount_cents: int
@@ -91,7 +94,6 @@ class InvoiceUpdateAdmin(BaseModel):
     due_date: Optional[str] = None
     description: Optional[str] = None
 
-# Client profile
 class ClientProfileUpdate(BaseModel):
     name: Optional[str] = None
     company_name: Optional[str] = None
@@ -99,13 +101,32 @@ class ClientProfileUpdate(BaseModel):
 
 # --- Auth helpers ---
 
+pwd_context = CryptContext(["bcrypt"])
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_access_token(token: str):
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 def get_current_user(x_authorization: Optional[str] = Header(None)):
     if not x_authorization:
         raise HTTPException(status_code=401, detail="Missing authorization")
-    # Simple token == user_id mapping for demo
-    user = next((u for u in USERS if u["id"] == x_authorization), None)
+    payload = decode_access_token(x_authorization)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    user = next((u for u in USERS if u["id"] == user_id), None)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="User not found")
     return user
 
 def require_admin(user: dict = Depends(get_current_user)):
@@ -122,16 +143,15 @@ def require_client(user: dict = Depends(get_current_user)):
 
 @app.post("/auth/login")
 def login(req: LoginRequest):
-    user = next((u for u in USERS if u["email"] == req.email and u["password"] == req.password), None)
-    if not user:
+    user = next((u for u in USERS if u["email"] == req.email), None)
+    if not user or not pwd_context.verify(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    # Return user id as "token" for demo
-    return {"access_token": user["id"], "user": {k: v for k, v in user.items() if k != "password"}}
+    token = create_access_token({"sub": user["id"]})
+    return {"access_token": token, "user": {k: v for k, v in user.items() if k != "password_hash"}}
 
-# Admin users
 @app.get("/admin/users")
 def list_users(admin: dict = Depends(require_admin)):
-    return [{k: v for k, v in u.items() if k != "password"} for u in USERS]
+    return [{k: v for k, v in u.items() if k != "password_hash"} for u in USERS]
 
 @app.post("/admin/users")
 def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
@@ -140,7 +160,7 @@ def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
     user = {
         "id": "u_" + uuid.uuid4().hex[:8],
         "email": req.email,
-        "password": req.password,
+        "password_hash": pwd_context.hash(req.password),
         "name": req.name,
         "company_name": req.company_name or "",
         "phone": req.phone or "",
@@ -148,7 +168,7 @@ def create_user(req: UserCreate, admin: dict = Depends(require_admin)):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     USERS.append(user)
-    return {k: v for k, v in user.items() if k != "password"}
+    return {k: v for k, v in user.items() if k != "password_hash"}
 
 @app.put("/admin/users/{user_id}")
 def update_user(user_id: str, req: UserUpdate, admin: dict = Depends(require_admin)):
@@ -157,8 +177,11 @@ def update_user(user_id: str, req: UserUpdate, admin: dict = Depends(require_adm
         raise HTTPException(status_code=404, detail="User not found")
     for field, val in req.dict(exclude_unset=True).items():
         if val is not None:
-            user[field] = val
-    return {k: v for k, v in user.items() if k != "password"}
+            if field == "password":
+                user["password_hash"] = pwd_context.hash(val)
+            else:
+                user[field] = val
+    return {k: v for k, v in user.items() if k != "password_hash"}
 
 @app.delete("/admin/users/{user_id}")
 def delete_user(user_id: str, admin: dict = Depends(require_admin)):
@@ -169,7 +192,6 @@ def delete_user(user_id: str, admin: dict = Depends(require_admin)):
         raise HTTPException(status_code=404, detail="User not found")
     return {"deleted": user_id}
 
-# Admin shipments
 @app.get("/admin/shipments")
 def list_shipments_admin(admin: dict = Depends(require_admin)):
     return {"shipments": SHIPMENTS}
@@ -199,7 +221,6 @@ def update_shipment_admin(sid: str, req: ShipmentUpdateAdmin, admin: dict = Depe
             shipment[field] = val
     return shipment
 
-# Admin invoices
 @app.get("/admin/invoices")
 def list_invoices_admin(admin: dict = Depends(require_admin)):
     return {"invoices": INVOICES}
@@ -228,11 +249,10 @@ def update_invoice_admin(iid: str, req: InvoiceUpdateAdmin, admin: dict = Depend
             invoice[field] = val
     return invoice
 
-# Admin DB view
 @app.get("/admin/db/{table_name}")
 def db_view(table_name: str, admin: dict = Depends(require_admin)):
     data = {
-        "users": [{k: v for k, v in u.items() if k != "password"} for u in USERS],
+        "users": [{k: v for k, v in u.items() if k != "password_hash"} for u in USERS],
         "companies": COMPANIES,
         "shipments": SHIPMENTS,
         "invoices": INVOICES,
@@ -246,10 +266,8 @@ def db_view(table_name: str, admin: dict = Depends(require_admin)):
     columns = list(rows[0].keys())
     return {"columns": columns, "rows": rows}
 
-# Client shipments
 @app.get("/client/shipments")
 def list_shipments_client(user: dict = Depends(require_client)):
-    # For demo: return all shipments; filter by customer_email if desired
     return {"shipments": SHIPMENTS}
 
 @app.post("/client/shipments")
@@ -268,19 +286,16 @@ def create_shipment_client(req: ShipmentCreateClient, user: dict = Depends(requi
     SHIPMENTS.append(shipment)
     return shipment
 
-# Client invoices
 @app.get("/client/invoices")
 def list_invoices_client(user: dict = Depends(require_client)):
-    # For demo: return all invoices; filter by customer_email if desired
     return {"invoices": INVOICES}
 
-# Client profile
 @app.put("/client/profile")
 def update_client_profile(req: ClientProfileUpdate, user: dict = Depends(require_client)):
     for field, val in req.dict(exclude_unset=True).items():
         if val is not None:
             user[field] = val
-    return {k: v for k, v in user.items() if k != "password"}
+    return {k: v for k, v in user.items() if k != "password_hash"}
 
 if __name__ == "__main__":
     import uvicorn
