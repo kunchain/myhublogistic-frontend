@@ -26,10 +26,12 @@ make dev
 - `login.html` – Login (redirects to admin or client dashboard by role)
 - `admin-users.html` – Admin user management (create/edit/delete users)
 - `admin-shipments.html` – Admin shipment management (list/create/edit)
+- `admin-shipment-details.html` – Admin shipment details/edit by ID
 - `admin-invoices.html` – Admin invoice management (list/create/edit)
 - `admin-db-view.html` – Admin database viewer (inspect tables)
 - `client-dashboard.html` – Client dashboard (shipments, invoices, profile)
 - `client-create-shipment.html` – Client page to create a new shipment
+- `client-invoice-details.html` – Client invoice details by ID
 - `404.html` – Simple 404 page
 
 ## API integration
