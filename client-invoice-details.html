@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice Details</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-logo"></span>
+        Myhublogistic
+      </a>
+      <div class="nav-links">
+        <a href="client-dashboard.html">Dashboard</a>
+        <a href="#" onclick="logout();return false;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container section">
+    <div class="card" style="max-width:700px;margin:0 auto;">
+      <h3>Invoice Details</h3>
+      <div id="msg"></div>
+      <div id="loading">Loading...</div>
+      <div id="details" style="display:none;">
+        <p><strong>ID:</strong> <span id="i_id"></span></p>
+        <p><strong>Amount:</strong> $<span id="i_amount"></span></p>
+        <p><strong>Status:</strong> <span id="i_status"></span></p>
+        <p><strong>Due Date:</strong> <span id="i_due_date"></span></p>
+        <p><strong>Description:</strong> <span id="i_description"></span></p>
+        <p><strong>Created:</strong> <span id="i_created"></span></p>
+        <p style="margin-top:20px;"><a class="btn btn-glass" href="client-dashboard.html">Back to Dashboard</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+  <script>
+    requireClient();
+    const msg = document.getElementById("msg");
+    const loading = document.getElementById("loading");
+    const details = document.getElementById("details");
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (!id) {
+      loading.textContent = "Missing invoice ID.";
+      throw new Error("Missing invoice ID");
+    }
+
+    async function loadInvoice() {
+      try {
+        const data = await apiRequest("/client/invoices");
+        const invoice = (data.invoices || []).find(inv => inv.id === id);
+        if (!invoice) {
+          loading.textContent = "Invoice not found.";
+          return;
+        }
+        document.getElementById("i_id").textContent = invoice.id;
+        document.getElementById("i_amount").textContent = (invoice.amount_cents/100).toFixed(2);
+        document.getElementById("i_status").textContent = invoice.status;
+        document.getElementById("i_due_date").textContent = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "-";
+        document.getElementById("i_description").textContent = invoice.description || "-";
+        document.getElementById("i_created").textContent = new Date(invoice.created_at).toLocaleString();
+        loading.style.display = "none";
+        details.style.display = "";
+      } catch (err) {
+        showMsg(msg, "Failed to load invoice: " + (err.data?.detail || err.message), "error");
+        loading.style.display = "none";
+      }
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>
